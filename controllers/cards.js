@@ -46,7 +46,11 @@ const deleteCard = (req, res) => {
       return res.status(200).send({ message: 'Карточка передана в удаление' });
     })
     .catch((err) => {
-      res.status(500).send({ message: `На сервере произошла ошибка: ${err}` });
+      if (err.name === 'CastError') {
+        res.status(400).send({ message: 'Переданы некорректные данные в методы удалении карточки' });
+      } else {
+        res.status(500).send({ message: `На сервере произошла ошибка: ${err}` });
+      }
     });
 };
 
