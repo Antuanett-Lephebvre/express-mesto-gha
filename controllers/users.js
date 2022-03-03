@@ -5,19 +5,14 @@ const BadRequest = require('../errors/BadRequest');
 const BadAuth = require('../errors/BadAuth');
 const NotFound = require('../errors/NotFound');
 const BadUnique = require('../errors/BadUnique');
-const ServerError = require('../errors/ServerError');
 
-const getUsers = (req, res) => {
+const getUsers = (req, res, next) => {
   User.find({})
     .then((users) => res.status(200).send({ data: users }))
-    .catch(() => {
-      throw new ServerError(
-        'На сервере произошла ошибка',
-      );
-    });
+    .catch((err) => next(err));
 };
 
-const getUser = (req, res) => {
+const getUser = (req, res, next) => {
   User.findById(req.params.userId)
     .then((user) => {
       if (!user) {
@@ -27,18 +22,16 @@ const getUser = (req, res) => {
     })
     .catch((err) => {
       if (err.name === 'CastError') {
-        throw new BadRequest(
+        next(new BadRequest(
           'Невалидный id',
-        );
+        ));
       } else {
-        throw new ServerError(
-          'На сервере произошла ошибка',
-        );
+        next(err);
       }
     });
 };
 
-const createUser = (req, res) => {
+const createUser = (req, res, next) => {
   const {
     name, about, avatar, email, password,
   } = req.body;
@@ -60,30 +53,35 @@ const createUser = (req, res) => {
             password: hash,
           })
             .catch((err) => {
-              if (err.name === 'MongoError' && err.code === 11000) {
-                throw new BadUnique(
+              if (err.code === 11000) {
+                next(new BadUnique(
                   'Пользователь с таким email уже существует',
-                );
+                ));
+              } else {
+                next(err);
               }
             })
-            .then((currentUser) => res.status(200).send({ currentUser: currentUser.toJSON() }))
+            .then((user) => res.status(200).send({
+              data: {
+                name, about, avatar, email,
+              },
+            }))
             .catch((err) => {
               if (err.name === 'ValidationError') {
-                throw new BadRequest(
+                next(new BadRequest(
                   'Переданы некорректные данные в методы создания пользователя',
-                );
+                ));
               } else {
-                throw new ServerError(
-                  'На сервере произошла ошибка',
-                );
+                next(err);
               }
             });
         });
       }
-    });
+    })
+    .catch(next);
 };
 
-const updateProfile = (req, res) => {
+const updateProfile = (req, res, next) => {
   const { name, about } = req.body;
   User.findByIdAndUpdate(
     req.user._id,
@@ -93,18 +91,16 @@ const updateProfile = (req, res) => {
     .then((user) => res.status(200).send({ data: user }))
     .catch((err) => {
       if (err.name === 'ValidationError') {
-        throw new BadRequest(
+        next(new BadRequest(
           'Переданы некорректные данные в методы обновления профиля',
-        );
+        ));
       } else {
-        throw new ServerError(
-          'На сервере произошла ошибка',
-        );
+        next(err);
       }
     });
 };
 
-const updateAvatar = (req, res) => {
+const updateAvatar = (req, res, next) => {
   const { avatar } = req.body;
   User.findByIdAndUpdate(
     req.user._id,
@@ -114,18 +110,16 @@ const updateAvatar = (req, res) => {
     .then((user) => res.status(200).send({ data: user }))
     .catch((err) => {
       if (err.name === 'ValidationError') {
-        throw new BadRequest(
+        next(new BadRequest(
           'Переданы некорректные данные в методы обновления аватара',
-        );
+        ));
       } else {
-        throw new ServerError(
-          'На сервере произошла ошибка',
-        );
+        next(err);
       }
     });
 };
 
-const login = (req, res) => {
+const login = (req, res, next) => {
   const { email, password } = req.body;
   User.findOne({ email })
     .select('+password')
@@ -158,17 +152,16 @@ const login = (req, res) => {
         });
       }
     })
-    .catch(() => {
-      throw new BadAuth('Ошибка авторизации');
-    })
-    .catch(() => {
-      throw new ServerError(
-        'На сервере произошла ошибка',
-      );
+    .catch((err) => {
+      if (err.code === 11000) {
+        next(new BadAuth('Ошибка авторизации'));
+      } else {
+        next(err);
+      }
     });
 };
 
-const getCurrentUser = (req, res) => {
+const getCurrentUser = (req, res, next) => {
   const userId = req.user._id;
   User.findById(userId)
     .then((user) => {
@@ -179,15 +172,14 @@ const getCurrentUser = (req, res) => {
     })
     .catch((err) => {
       if (err.name === 'CastError') {
-        throw new BadRequest(
+        next(new BadRequest(
           'Переданы некорректные данные в методы получения пользователя',
-        );
+        ));
       } else {
-        throw new ServerError(
-          'На сервере произошла ошибка',
-        );
+        next(err);
       }
-    });
+    })
+    .catch(next);
 };
 
 module.exports = {
