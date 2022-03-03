@@ -1,8 +1,9 @@
 const jwt = require('jsonwebtoken');
+const BadAuth = require('../errors/BadAuth');
 
 const auth = (req, res, next) => {
   if (!req.cookies.jwt) {
-    next(res.status(401).send({ message: 'Неверный запрос' }));
+    next(new BadAuth('Авторизация не прошла'));
   } else {
     const token = req.cookies.jwt;
     let payload;
@@ -10,7 +11,7 @@ const auth = (req, res, next) => {
     try {
       payload = jwt.verify(token, 'secret-key');
     } catch (err) {
-      next(res.status(401).send({ message: 'Неверный запрос' }));
+      next(new BadAuth('Авторизация не прошла'));
     }
     req.user = payload;
     next();
