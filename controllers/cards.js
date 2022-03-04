@@ -40,24 +40,8 @@ const deleteCard = (req, res, next) => {
         throw new Forbidden('Недостаточно прав');
       }
       Card.findOneAndRemove(cardId)
-        .then((currentCard) => {
-          if (!currentCard) {
-            next(new NotFound('Нет данных'));
-          }
-          return res.status(200).send({ message: 'Карточка удалена' });
-        })
-        .catch((err) => {
-          if (err.name === 'CastError') {
-            next(new BadRequest(
-              'Переданы некорректные данные в методы удалении карточки',
-            ));
-          } else {
-            next(new ServerError(
-              'На сервере произошла ошибка',
-            ));
-          }
-        });
-      return res.status(200).send({ message: 'Карточка передана в удаление' });
+        .then(() => res.status(200).send({ message: 'Карточка удалена' }))
+        .catch(next);
     })
     .catch((err) => {
       if (err.name === 'CastError') {
