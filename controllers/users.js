@@ -52,16 +52,7 @@ const createUser = (req, res, next) => {
             email,
             password: hash,
           })
-            .catch((err) => {
-              if (err.code === 11000) {
-                next(new BadUnique(
-                  'Пользователь с таким email уже существует',
-                ));
-              } else {
-                next(err);
-              }
-            })
-            .then((user) => res.status(200).send({
+            .then(() => res.status(200).send({
               data: {
                 name, about, avatar, email,
               },
@@ -127,30 +118,29 @@ const login = (req, res, next) => {
       if (!user) {
         throw new BadAuth('Нет пользователя с таким id');
       } else {
-        bcrypt.compare(password, user.password, (error, isValid) => {
-          if (error) {
-            throw new BadAuth('Неверный запрос');
-          }
-          if (!isValid) {
-            throw new BadAuth('Неправильный пароль');
-          }
-          if (isValid) {
-            const token = jwt.sign(
-              {
-                _id: user._id,
-              },
-              'secret-key',
-            );
-            res
-              .cookie('jwt', token, {
-                maxAge: 3600000 * 24 * 7,
-                httpOnly: true,
-                sameSite: true,
-              })
-              .send({ message: 'Успешный вход' });
-          }
-        });
+        return bcrypt.compare(password, user.password)
+          .then((matched) => {
+            if (!matched) {
+              return Promise.reject(new BadAuth('Неправильный пароль'));
+            }
+            return user;
+          });
       }
+    })
+    .then((user) => {
+      const token = jwt.sign(
+        {
+          _id: user._id,
+        },
+        'secret-key',
+      );
+      res
+        .cookie('jwt', token, {
+          maxAge: 3600000 * 24 * 7,
+          httpOnly: true,
+          sameSite: true,
+        })
+        .send({ message: 'Успешный вход' });
     })
     .catch((err) => {
       if (err.code === 11000) {
